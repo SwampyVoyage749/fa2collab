@@ -103,4 +103,4 @@ powershell -ExecutionPolicy Bypass -File scripts\soak_objects.ps1 -Minutes 5
 
 - 仓库只包含我们自己写的协同模块与测试，**不含**上游完整源码；编译请按 [BUILD.md](BUILD.md) 取对应版本
 - 发布包里的 `FA2sp.dll` 是上述组合的编译产物，源码即本仓库 + 上游同版本源码
-- 不含 EA 的游戏资源；使用者需自备正版《命令与征服：红色警戒 2 / 尤里的复仇》
+- 不含 EA 的游戏资源；使用者需自备《命令与征服：红色警戒 2 / 尤里的复仇》
