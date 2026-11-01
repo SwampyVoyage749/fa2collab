@@ -1,0 +1,27 @@
+# 编译产物
+build/
+Release/
+Debug/
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.lib
+*.exe
+*.dll
+
+# VS
+.vs/
+*.user
+*.suo
+*.sdf
+*.opensdf
+
+# 测试临时
+evidence/*.log
+evidence/*.csv
+
+# 系统
+Thumbs.db
+desktop.ini
