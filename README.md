@@ -1,5 +1,12 @@
 # FA2sp Collab · 红警地编联机协作
 
+[![Release](https://img.shields.io/github/v/release/SwampyVoyage749/fa2collab?style=flat-square&label=release)](https://github.com/SwampyVoyage749/fa2collab/releases)
+[![Downloads](https://img.shields.io/github/downloads/SwampyVoyage749/fa2collab/total?style=flat-square&label=downloads)](https://github.com/SwampyVoyage749/fa2collab/releases)
+[![License](https://img.shields.io/github/license/SwampyVoyage749/fa2collab?style=flat-square&label=license)](LICENSE)
+[![FA2sp](https://img.shields.io/badge/base-FA2sp%20HDM%201.5.3-blue?style=flat-square)](https://github.com/handama/FA2sp)
+
+**[⬇ 下载最新版（含编译好的 DLL，解压即用）](https://github.com/SwampyVoyage749/fa2collab/releases/latest)**
+
 让 **FinalAlert 2 SP（HDM Edition）** 支持**两个人同时编辑同一张地图**的联机插件：
 地形、矿石、单位、建筑、触发/INI 全部实时互通，谁在改哪一块看得见，抢同一块会被拦住。
 
