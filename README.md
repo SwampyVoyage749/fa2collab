@@ -28,7 +28,7 @@
 
 ## 给"只用"的人
 
-不需要编译。到 **[Releases](../../releases)** 下载 `FA2spCollab_v0.4.0.zip`：
+不需要编译。直接下载 **[FA2spCollab_v0.4.0.zip](https://github.com/SwampyVoyage749/fa2collab/releases/download/v0.4.0/FA2spCollab_v0.4.0.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：
 
 1. 备份地编目录里的 `FA2sp.dll`
 2. 用包里的 `FA2sp.dll` 覆盖
