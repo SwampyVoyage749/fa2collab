@@ -103,6 +103,31 @@ powershell -ExecutionPolicy Bypass -File scripts\soak_objects.ps1 -Minutes 5
   说清你是**做图的**还是**写 INI 的**、现在怎么绕过去，比"希望支持 XX"有用得多
 - **只想知道怎么用**：先看 [`docs/使用说明.md`](docs/使用说明.md)（安装 / 异地联机 / 防火墙 / 排查表）
 
+### 两边版本必须一致（旧 DLL 会崩）
+
+**症状**：联机放着建筑/物件时，某一边直接闪退（事件查看器里 `FinalAlert2YR.dat` 报 `0xc0000005` / `0xc000041d`，
+地编目录 `debug\snapshot-*\except.txt` 有记录，还会生成几百 MB 的 `extcrashdump.dmp`）。
+
+**原因**：v0.4 之前的实现是"直接重建对象列表"，而等距视图用 `CellDatas` 里的索引去查这些列表，
+索引一错位就画不出来 / 越界崩溃。v0.4.1 起改成调用 FA2 自己的 `UpdateField*Data(false)` 重建渲染表再整屏重绘。
+
+**自查**：看两边 `FA2sp.log` 里的日志特征 —
+
+| 日志 | 含义 |
+|---|---|
+| `object lists rebuilt: buildings=710 units=284 ...` | ✅ 新版（v0.4+） |
+| `removed N keys (deleted by peer)` | ✅ v0.4.1 删除同步 |
+| `rebuilt object list for [Structures] -> 710 items` | ❌ **旧版**，就是崩溃的那套代码 |
+
+或者直接比 `FA2sp.dll`：v0.4.1 = `9,575,424` 字节，SHA-256 `3A88AFBEFBBF923E3B532A7FE16870E693AC244FF20BEB49A35BF46D130274C0`。
+
+**处理**：两边都换成同一份 v0.4.1 DLL（`setup_collab.cmd` 会检查并提示）；
+崩溃留下的快照只保留 `except.txt` 即可，`extcrashdump.dmp` 一般有几百 MB，可以直接删。
+
+**已知案例**（2026-11-01）：180×180 地图、710 栋建筑 / 284 辆车，旧版 DLL 在对方连续放置建筑时
+（`[Structures] 710 → 711 → 712`，期间还出现一次 `CONFLICT on ini section [Structures]`）崩溃两次后退出；
+换 v0.4.1 后该场景不再复现。
+
 ## 许可
 
 本项目修改自 [FA2sp](https://github.com/handama/FA2sp)（AGPL-3.0）与 [FA2pp](https://github.com/secsome/FA2pp)（AGPL-3.0），
