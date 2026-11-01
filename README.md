@@ -47,7 +47,14 @@
 3. 把 `FA2spCollab.ini` 放进同一目录，按需改 `Host / HostAddress / Port / Name`
 4. 两边打开**同一张图**（文件必须完全一致）
 
-一次配置可以双击 `setup_collab.cmd`，它会自动找目录、备份、写 ini。
+一次配置可以双击 **`setup_collab.cmd`**（[仓库里的脚本](scripts/setup_collab.cmd) / [Release 包内也有](https://github.com/SwampyVoyage749/fa2collab/releases/latest)），它会：
+
+1. 自动找到地编目录（也可以把文件夹拖给它）
+2. 检查 `FA2sp.dll` 是不是联机版，不是就**自动备份成 `FA2sp.dll.bak` 再替换**
+3. 问你是**房主**还是**加入方**、你的名字、房主的 IP
+4. 直接写好 `FA2spCollab.ini`（房主 `Host=1` / 加入方 `Host=0` + `HostAddress`）
+5. 房主还会列出本机所有可用 IP（局域网 / Radmin / UU 等），挑一个发给对方即可，并提示防火墙命令
+
 详细说明见 [`docs/使用说明.md`](docs/使用说明.md)（含异地联机、防火墙、排查表）。
 
 ## 给"要改"的人
