@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 先看使用说明（安装 / 异地联机 / 防火墙 / 排查表）
+    url: https://github.com/SwampyVoyage749/fa2collab/blob/main/docs/%E4%BD%BF%E7%94%A8%E8%AF%B4%E6%98%8E.md
+    about: 九成"连不上""不同步"都能在这里找到答案
+  - name: 下载最新版（含编译好的 DLL）
+    url: https://github.com/SwampyVoyage749/fa2collab/releases/latest
+    about: 不想编译就下 Release 包，解压覆盖即可
+  - name: 编译与测试（BUILD.md）
+    url: https://github.com/SwampyVoyage749/fa2collab/blob/main/BUILD.md
+    about: 想自己编 DLL 或跑回归测试看这里

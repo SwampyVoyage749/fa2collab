@@ -83,6 +83,14 @@ powershell -ExecutionPolicy Bypass -File scripts\soak_objects.ps1 -Minutes 5
 最近一次结果：14 项全 PASS；空白图与 MO 真实图均能看到对方放的建筑；
 37 次物件注入压测 **0 异常 / 0 崩溃快照 / 内存持平**。详见 [`docs/EVIDENCE.md`](docs/EVIDENCE.md)。
 
+## 遇到问题 / 想加功能
+
+- **出了 Bug**：提 [Issue（会自动带上模板）](https://github.com/SwampyVoyage749/fa2collab/issues/new?template=bug_report.yml)。
+  模板会要「两边 `FA2sp.log` + 地图尺寸来源 + 复现步骤 + 是否崩过」——这几样齐全基本当天能定位
+- **想要新功能**：[功能建议模板](https://github.com/SwampyVoyage749/fa2collab/issues/new?template=feature_request.yml)，
+  说清你是**做图的**还是**写 INI 的**、现在怎么绕过去，比"希望支持 XX"有用得多
+- **只想知道怎么用**：先看 [`docs/使用说明.md`](docs/使用说明.md)（安装 / 异地联机 / 防火墙 / 排查表）
+
 ## 许可
 
 本项目修改自 [FA2sp](https://github.com/handama/FA2sp)（AGPL-3.0）与 [FA2pp](https://github.com/secsome/FA2pp)（AGPL-3.0），

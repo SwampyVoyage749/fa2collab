@@ -1,0 +1,128 @@
+name: Bug 报告
+description: 联机出问题（不同步 / 崩溃 / 连不上 / 画面异常）用这个；附日志能大幅加快定位
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        谢谢反馈喵~ 填得越具体，定位越快。
+        日志在地编目录下的 `FA2sp.log`，搜索 `[Collab]` 就能看到联机相关行；
+        崩过的话还会有 `debug\snapshot-*\except.txt`。
+
+  - type: input
+    id: collab_version
+    attributes:
+      label: FA2sp Collab 版本
+      description: 在 Release 页面或压缩包文件名里，形如 v0.4.0；自己编的话写 commit
+      placeholder: v0.4.0
+    validations:
+      required: true
+
+  - type: input
+    id: fa2_version
+    attributes:
+      label: 地编版本
+      description: 启动后标题栏 / FA2sp.log 首行
+      placeholder: "FinalAlert 2 SP: HDM Edition 1.5.3"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: 出问题的是哪一边
+      options:
+        - 房主（Host=1）
+        - 加入方（Host=0）
+        - 两边都这样
+        - 单人模式（没联机也这样）
+    validations:
+      required: true
+
+  - type: dropdown
+    id: symptom
+    attributes:
+      label: 现象分类
+      multiple: true
+      options:
+        - 连不上 / 一直重连
+        - 地形不同步
+        - 物件（建筑/车/兵）不出现
+        - 触发 / INI 不同步
+        - 抢同一块地没被拦住
+        - 直接崩溃 / 报错弹窗
+        - 界面（HUD / 光标 / 选区）异常
+        - 其它
+    validations:
+      required: true
+
+  - type: input
+    id: map
+    attributes:
+      label: 地图
+      description: 尺寸与来源（例：200×200 自制空白图 / MO 的 c_battlecity.map / 某 mod 工程图）；能脱敏上传更好
+      placeholder: 200×200 自制图，无触发
+    validations:
+      required: true
+
+  - type: dropdown
+    id: network
+    attributes:
+      label: 联机方式
+      options:
+        - 同一台电脑双开（127.0.0.1）
+        - 同一局域网
+        - 虚拟局域网（Radmin VPN / UU / Zerotier 等）
+        - 其它
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 越像"照做就能复现"越好
+      placeholder: |
+        1. 房主用 setup_collab.cmd 配成 Host，开图
+        2. 加入方 HostAddress 填房主 IP，开同一张图
+        3. 房主放一个电厂
+        4. 加入方画面里一直没有
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望 vs 实际
+      placeholder: 期望对方放的电厂半秒内出现；实际什么都没出现，日志停在 applied ini section [Structures]
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: FA2sp.log（两边都贴，至少包含 [Collab] 行）
+      description: 直接粘贴文本，或把文件拖进这个框
+      render: text
+    validations:
+      required: true
+
+  - type: textarea
+    id: crash
+    attributes:
+      label: 崩溃快照（可选）
+      description: debug\snapshot-*\except.txt 的内容；没有就留空
+      render: text
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 自查（请先确认）
+      options:
+        - label: 两边打开的是同一个地图文件（逐字节一致，哈希才会相同）
+        - label: 把 `FA2spCollab.ini` 里的 `Enabled` 改成 0 后问题消失（说明确实与联机相关）
+        - label: 已经备份过这张地图，且不是在生产用的原图上直接联机
+        - label: 不是从旧版本直接覆盖升级（必要时重新解压一份官方运行时对比）

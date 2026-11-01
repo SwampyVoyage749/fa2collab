@@ -1,0 +1,59 @@
+name: 功能建议
+description: 想要新的联机能力 / 更好的工作流
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提建议时说说**你是怎么做图的 / 怎么写 INI 的**，比"希望能 XX"有用得多喵~
+
+  - type: dropdown
+    id: who
+    attributes:
+      label: 你的角色
+      multiple: true
+      options:
+        - 做图的（地形/物件/布局）
+        - 写 INI 的（触发/小队/脚本/平衡）
+        - 两者都做
+        - 只是使用者 / 旁观
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 现在卡在哪
+      description: 具体场景 + 现在的绕法
+      placeholder: |
+        两个人同时做一个 mod 的战役图，我改触发、搭档摆房子。
+        现在只有 16×16 区块租约，但触发是整节同步，同一节里改不同触发会互相覆盖。
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你希望怎么解决
+      placeholder: 触发按 ID 独立同步 / 能锁定某几个触发 / 有冲突时弹窗让人选
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 对你来说有多重要
+      options:
+        - 有了会舒服很多
+        - 不做也能忍
+        - 直接影响能不能用
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 其它（截图、参考实现、地图样例）
+    validations:
+      required: false
