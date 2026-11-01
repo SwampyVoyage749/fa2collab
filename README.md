@@ -7,6 +7,10 @@
 
 **[⬇ 下载最新版（含编译好的 DLL，解压即用）](https://github.com/SwampyVoyage749/fa2collab/releases/latest)**
 
+> [!IMPORTANT]
+> **本插件完全由 DeepSeek-V4.1-Flash 生成**
+> 从局域网同步内核、FA2 内部渲染表重建，到全部测试脚本与文档，均由它完成。
+
 让 **FinalAlert 2 SP（HDM Edition）** 支持**两个人同时编辑同一张地图**的联机插件：
 地形、矿石、单位、建筑、触发/INI 全部实时互通，谁在改哪一块看得见，抢同一块会被拦住。
 
