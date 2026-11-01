@@ -64,6 +64,9 @@ uint32_t     g_selfTestDelayMs = 0;
 uint32_t     g_selfTestLoopMs = 0;
 bool         g_selfTestObject = false; // test hook: push one [Structures] key
 bool         g_selfTestObjectWalk = false; // test hook: move it every time (soak)
+uint32_t     g_selfTestDeleteDelayMs = 0;  // test hook: delete the injected key after N ms
+bool         g_selfTestDeletePending = false;
+uint64_t     g_selfTestDeleteAt = 0;
 int          g_selfTestObjSeq = 0;     // 每次注入挪一格，压测时能持续触发重建
 bool         g_objDirty = false;       // an object section changed this tick
 bool         g_objRefreshFailed = false; // object rebuild crashed once -> stay off
@@ -376,7 +379,7 @@ void ApplyIniSection(const std::string& name,
                      name.c_str(), (unsigned)merged.conflicts.size());
     }
 
-    int applied = 0;
+    int applied = 0, removed = 0;
     for (auto& p : merged.merged) {
         auto it = localMap.find(p.first);
         if (it != localMap.end() && it->second == p.second) continue;   // 没变化
@@ -384,8 +387,27 @@ void ApplyIniSection(const std::string& name,
         else doc->InsertPair(sec->GetEntities(), p.first.c_str(), p.second.c_str());
         ++applied;
     }
+
+    // 删除同步：本地有、三方合并结果里没有的键 —— 说明「对端删了、本地没动」，真删掉。
+    // 注意不能拿「远端整节」做镜像：那样会把本地刚加的新键一起误删（"不同键共存"就没了）。
+    if (g_iniDeleteSync) {
+        std::vector<std::string> toDelete;
+        for (auto& kv2 : localMap) {
+            if (merged.merged.find(kv2.first) == merged.merged.end()) toDelete.push_back(kv2.first);
+        }
+        for (auto& k : toDelete) {
+            auto it = sec->GetEntities().find(ppmfc::CString(k.c_str()));
+            if (it != sec->GetEntities().end()) { sec->GetEntities().manual_erase(it); ++removed; }
+        }
+        if (removed > 0) {
+            Logger::Info("[Collab] ini section [%s]: removed %d keys (deleted by peer)",
+                         name.c_str(), removed);
+        }
+    }
+    applied += removed;
+
     g_iniBase[name] = CollectSection(sec);
-    if (IsObjectSection(name.c_str())) {
+    if (IsObjectSection(name.c_str()) || removed > 0) {
         g_objDirty = true;   // rebuilt once at the end of this tick
     }
     // 保持基线一致，避免把收到的改动再发回去
@@ -396,27 +418,6 @@ void ApplyIniSection(const std::string& name,
         if (v) for (const char* p = v; *p; ++p) { h ^= (unsigned char)*p; h *= 1099511628211ull; }
     }
     g_iniHash[name] = h;
-
-    // 整节镜像：远端没有的键删掉（实验特性，默认关）
-    if (g_iniDeleteSync) {
-        std::vector<std::string> toDelete;
-        for (auto& e : sec->GetEntities()) {
-            const char* k = e.first;
-            if (!k) continue;
-            bool exists = false;
-            for (auto& p : kv) { if (p.first == k) { exists = true; break; } }
-            if (!exists) toDelete.push_back(k);
-        }
-        int deleted = 0;
-        for (auto& k : toDelete) {
-            auto it = sec->GetEntities().find(ppmfc::CString(k.c_str()));
-            if (it != sec->GetEntities().end()) { sec->GetEntities().manual_erase(it); ++deleted; }
-        }
-        if (deleted > 0) {
-            applied += deleted;
-            Logger::Info("[Collab] ini section [%s]: removed %d stale keys", name.c_str(), deleted);
-        }
-    }
 
     Logger::Info("[Collab] applied ini section [%s] entries=%d total=%u",
                  name.c_str(), applied, (unsigned)sec->GetEntities().size());
@@ -876,7 +877,8 @@ void CCollabExt::ProgramStartupInit()
     g_selfTestLoopMs = (uint32_t)atoi(ReadIni("SelfTestLoopMs", "0").c_str());
     g_selfTestObject = ReadIni("SelfTestObject", "0") == "1";
     g_selfTestObjectWalk = ReadIni("SelfTestObjectWalk", "0") == "1";
-    g_iniDeleteSync = ReadIni("IniDeleteSync", "0") == "1";
+    g_selfTestDeleteDelayMs = (uint32_t)atoi(ReadIni("SelfTestDeleteDelayMs", "0").c_str());
+    g_iniDeleteSync = ReadIni("IniDeleteSync", "1") == "1";
     g_showHud = ReadIni("Hud", "1") == "1";
     g_showPlayerList = ReadIni("PlayerList", "1") == "1";
 
@@ -975,6 +977,20 @@ void CCollabExt::Tick()
         }
 
 
+        // 删除自测：把刚放进去的 key=999 从 INI 删掉，验证对端也会删
+        if (g_selfTestDeletePending && nowMs >= g_selfTestDeleteAt) {
+            g_selfTestDeletePending = false;
+            CINI* d2 = &CINI::CurrentDocument;
+            INISection* st2 = d2 ? d2->GetSection("Structures") : nullptr;
+            if (st2) {
+                auto it2 = st2->GetEntities().find(ppmfc::CString("999"));
+                if (it2 != st2->GetEntities().end()) {
+                    st2->GetEntities().manual_erase(it2);
+                    Logger::Info("[Collab] selftest: deleted structure key=999");
+                }
+            }
+        }
+
         // 压测模式：周期性重置，让自测反复注入改动
         if (g_selfTestLoopMs > 0 && g_selfTestDone && nowMs - g_lastSelfTest > g_selfTestLoopMs) {
             g_selfTestDone = false;
@@ -1059,6 +1075,10 @@ void CCollabExt::Tick()
                                     else doc->InsertPair(st->GetEntities(), "999", nv.c_str());
                                     Logger::Info("[Collab] selftest: placed structure key=999 type=%s at (%d,%d)",
                                                  f[1].c_str(), tx, ty);
+                                    if (g_selfTestDeleteDelayMs > 0) {
+                                        g_selfTestDeletePending = true;
+                                        g_selfTestDeleteAt = nowMs + g_selfTestDeleteDelayMs;
+                                    }
                                 }
                             }
                         }

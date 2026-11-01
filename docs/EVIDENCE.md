@@ -103,3 +103,22 @@ INI 节同步               PASS
 - 内存：房主 228 → 227 MB（持平）；客户机 188 → 236 MB（接收大量增量后趋于上限）
 
 结论：出货版本在真实工程图 + 持续编辑下稳定，不是只在空白图上成立。
+
+## 删除同步（v0.4.1，2026-11-01 18:0x）
+
+复现：`powershell -ExecutionPolicy Bypass -File deltest.ps1`
+（真实图：`-Map "D:\Mental Omega FS\MapsMO\Challenge\c_battlecity.map"`）
+
+| 断言 | 结果 |
+|---|---|
+| 注入端放入建筑（key=999） | PASS |
+| 注入端删除该键 | PASS |
+| 观察端日志 `removed 1 keys (deleted by peer)` | PASS |
+| 观察端建筑数 +1 后回到基线（空白图 [1,0]；MO [282,283,282]） | PASS |
+| 空白图：画面出现建筑 / 删除后消失（像素差 1195） | PASS |
+| 空白图：删除后与初始画面**逐像素一致** | PASS（diff=0） |
+| 截图 | `evidence/deltest_presets_tem_1_before.png` / `_2_placed.png` / `_3_deleted.png` |
+| 压测 | `soak_objects.ps1`（SelfTestDeleteDelayMs=4000，放/删抖动）5 分钟：0 异常 / 0 崩溃 / 内存持平 |
+
+> 真实图（MO）上像素差只作参考：已有 282 个建筑可能遮挡注入点，且水面/灯光有动画；
+> 判定以建筑计数与日志为准。

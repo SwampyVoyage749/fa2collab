@@ -27,6 +27,7 @@
 | 光标 / 名字 / 工具 / 笔刷 / 框选 同步 | ✅ |
 | 地形 + 覆盖图（矿石等）**逐格增量**同步（约 200ms） | ✅ |
 | **物件同步**：建筑 / 车辆 / 步兵 / 飞机（约 0.5s，含渲染刷新） | ✅ v0.4 |
+| **删除同步**：删建筑 / 单位 / 触发 → 对端同步删除 | ✅ v0.4.1（默认开） |
 | 地图内嵌 INI 节同步（Triggers / Events / Actions / TeamTypes / TaskForces / ScriptTypes / Waypoints / Houses…） | ✅ |
 | 触发按 ID 三方合并（不同键共存，同键冲突记日志） | ✅ |
 | 16×16 区块租约：别人占着就改不动，硬改会被还原（撤销也一样） | ✅ |
@@ -34,12 +35,12 @@
 | 中途加入自动补全量快照（地形 + INI + 物件） | ✅ |
 | 断线自动重连 | ✅ |
 | 房间设置窗（`Ctrl+Alt+C`） | ✅ |
-| INI 删键同步 | ⚠️ 实验开关（默认关） |
+
 | 公网/NAT 穿透 | ❌ 只支持局域网或虚拟局域网（Radmin VPN / UU 等） |
 
 ## 给"只用"的人
 
-不需要编译。直接下载 **[FA2spCollab_v0.4.0.zip](https://github.com/SwampyVoyage749/fa2collab/releases/download/v0.4.0/FA2spCollab_v0.4.0.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：
+不需要编译。直接下载 **[FA2spCollab_v0.4.1.zip](https://github.com/SwampyVoyage749/fa2collab/releases/download/v0.4.1/FA2spCollab_v0.4.1.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：
 
 1. 备份地编目录里的 `FA2sp.dll`
 2. 用包里的 `FA2sp.dll` 覆盖

@@ -219,3 +219,15 @@ Name=Alpha
     `LoadObjects loading: CAFRMA`，前后截图差异区域正好是那栋雪地砖房
     （`evidence/objtest_c_battlecity_client_before.png` / `_after.png`）
 - 顺带验证：单位列表也走同一条路（`units=83` 是 MO 图里真实的车辆数）
+
+## 删除同步转正（2026-11-01 18:0x，v0.4.1）
+
+- 旧实现（整节镜像）会误删本地刚加的键，而且在压测里崩过，所以一直默认关
+- 新实现：**按三方合并结果删键** —— 只有 `localMap 有、merged 没有` 的键才删
+  - 单方删除 → 删；一边删一边改 → 记冲突并保留改动（不删）
+  - 删除统一 `GetEntities().find()` + `manual_erase(it)`，删完同一 tick 重建物件列表 + 重绘
+- `IniDeleteSync` 默认值改为 1（配置模板同步）
+- 取证：`deltest.ps1`
+  - 空白图：放建筑 → 对端出现（像素差 1195）→ 删键 → 对端消失（像素差 1195）→ **与初始画面逐像素一致（diff=0）**
+  - MO 真实图：`buildings=[282,283,282]`、`removed 1 keys (deleted by peer)`
+  - 5 分钟「放/删」抖动压测：0 异常 / 0 崩溃快照 / 内存持平

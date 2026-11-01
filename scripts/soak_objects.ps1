@@ -26,7 +26,7 @@ foreach ($d in $A, $B) {
     Remove-Item (Join-Path $d 'debug\snapshot-*') -Recurse -Force -ErrorAction SilentlyContinue
 }
 $nl = [string][char]13 + [string][char]10
-$iniA = @('[Collab]','Enabled=1','Host=1','Port=31415','Name=Alpha','SelfTest=1','SelfTestDelayMs=5000','SelfTestObject=1','SelfTestObjectWalk=1','SelfTestLoopMs=8000') -join $nl
+$iniA = @('[Collab]','Enabled=1','Host=1','Port=31415','Name=Alpha','SelfTest=1','SelfTestDelayMs=5000','SelfTestObject=1','SelfTestObjectWalk=1','SelfTestLoopMs=8000','SelfTestDeleteDelayMs=4000') -join $nl
 $iniB = @('[Collab]','Enabled=1','Host=0','HostAddress=127.0.0.1','Port=31415','Name=Beta') -join $nl
 [IO.File]::WriteAllText("$A\FA2spCollab.ini", $iniA + $nl, [Text.Encoding]::ASCII)
 [IO.File]::WriteAllText("$B\FA2spCollab.ini", $iniB + $nl, [Text.Encoding]::ASCII)
@@ -63,6 +63,8 @@ $snapB = @(Get-ChildItem "$B\debug" -Filter 'snapshot-*' -Directory -ErrorAction
 Get-Process | Where-Object { $_.ProcessName -match 'FinalAlert' } | Stop-Process -Force -ErrorAction SilentlyContinue
 
 $inj   = ([regex]::Matches($la, 'selftest: placed structure key=999')).Count
+$del   = ([regex]::Matches($la, 'selftest: deleted structure key=999')).Count
+$remB  = ([regex]::Matches($lb, 'removed \d+ keys \(deleted by peer\)')).Count
 $rebA  = ([regex]::Matches($la, 'object lists rebuilt:')).Count
 $rebB  = ([regex]::Matches($lb, 'object lists rebuilt:')).Count
 $excA  = ([regex]::Matches($la, 'exception in Tick')).Count
@@ -70,6 +72,8 @@ $excB  = ([regex]::Matches($lb, 'exception in Tick')).Count
 
 [pscustomobject]@{
     注入次数 = $inj
+    删除次数 = $del
+    对端删除次数 = $remB
     A重建次数 = $rebA
     B重建次数 = $rebB
     A异常 = $excA
@@ -80,7 +84,7 @@ $excB  = ([regex]::Matches($lb, 'exception in Tick')).Count
     内存A起止 = ("{0} -> {1} MB" -f $samples[0].memA, $samples[-1].memA)
     内存B起止 = ("{0} -> {1} MB" -f $samples[0].memB, $samples[-1].memB)
 } | Format-List
-if ($excA -eq 0 -and $excB -eq 0 -and $alive -eq 2 -and $inj -gt 10 -and $rebB -ge $inj) {
+if ($excA -eq 0 -and $excB -eq 0 -and $alive -eq 2 -and $inj -gt 10 -and $del -gt 5 -and $remB -gt 5) {
     Write-Host '== 物件重建压测通过 ==' -ForegroundColor Green
 } else {
     Write-Host '== 压测未通过，看日志 ==' -ForegroundColor Red
