@@ -230,4 +230,15 @@ Name=Alpha
 - 取证：`deltest.ps1`
   - 空白图：放建筑 → 对端出现（像素差 1195）→ 删键 → 对端消失（像素差 1195）→ **与初始画面逐像素一致（diff=0）**
   - MO 真实图：`buildings=[282,283,282]`、`removed 1 keys (deleted by peer)`
-  - 5 分钟「放/删」抖动压测：0 异常 / 0 崩溃快照 / 内存持平
+  - 5 分钟「放/删」抖动压测：**37 次放 / 37 次删**，对端删除 37 次、重建 78+75 次，
+    **0 异常 / 0 崩溃快照 / 两进程存活 / 内存 240→229 MB**
+
+## 修「非法光标坐标导致崩溃」（2026-11-01 19:0x，v0.4.2）
+
+- 现场：F:\FA2Collab，v0.4.1 + 真实图（180×180 / 710 建筑），18:48、18:53 各崩一次
+- 事件日志：`FinalAlert2YR.dat` `0xc0000005`（`nfvoglv32.dll 0xc0000409` 是后续），
+  `except.txt` 固定 `Exception code: C0000005 at 0045E8F0`
+- 定位：`0045E880` = `CIsoView::MapCoord2ScreenCoord_Height`，内部 `GetCellAt(X,Y)` 无越界检查；
+  崩溃前日志正好有 `cursor from id=1 cell=(-1,-1)` —— 对端鼠标移出视野时 `ScreenCoord2MapCoord` 返回 (-1,-1) 并广播
+- 修法：`CellInRange()` 内存安全校验，四个调用点全部加 guard；本机无效坐标不再广播；新增 `crashtest.ps1`
+- 验证：crashtest 5/5、verify 14/14、deltest 8/8

@@ -65,6 +65,7 @@ uint32_t     g_selfTestLoopMs = 0;
 bool         g_selfTestObject = false; // test hook: push one [Structures] key
 bool         g_selfTestObjectWalk = false; // test hook: move it every time (soak)
 uint32_t     g_selfTestDeleteDelayMs = 0;  // test hook: delete the injected key after N ms
+bool         g_selfTestBadCursor = false;  // test hook: broadcast out-of-range cursor cells
 bool         g_selfTestDeletePending = false;
 uint64_t     g_selfTestDeleteAt = 0;
 int          g_selfTestObjSeq = 0;     // 每次注入挪一格，压测时能持续触发重建
@@ -118,8 +119,25 @@ inline void ClientToMap(CIsoView* view, POINT pt, int& mx, int& my)
 }
 
 // 地图 -> 视图客户区
+// 这个格子能不能安全地交给 FA2 换算：MapCoord2ScreenCoord 内部会 GetCellAt(X,Y)，
+// 完全没有越界检查，坐标一旦非法就是 C0000005（实测崩在 0045E8F0）。
+inline bool CellInRange(int mx, int my)
+{
+    if (CMapData::MapNotLoaded) return false;
+    CMapData* map = &CMapData::Instance;
+    if (!map || !map->CellDatas) return false;
+    int stride = map->MapWidthPlusHeight;
+    if (stride <= 0) return false;
+    if (mx < 0 || my < 0 || mx >= stride || my >= stride) return false;
+    long long idx = (long long)mx + (long long)my * stride;
+    if (idx < 0 || idx >= map->CellDataCount) return false;
+    return map->IsCoordInMap(mx, my);
+}
+
 inline void MapToClient(CIsoView* view, int mx, int my, int& cx, int& cy)
 {
+    cx = cy = -99999;                 // 调用方看到这个值就跳过绘制
+    if (!CellInRange(mx, my)) return;
     int x = mx, y = my;
     CIsoView::MapCoord2ScreenCoord(x, y);
     POINT pt{x, y};
@@ -485,6 +503,19 @@ public:
     void OnCursor(const collab::CursorState& c) override
     {
         auto& pc = g_peers[c.player];
+        if (!CellInRange(c.cx, c.cy)) {
+            // 对端鼠标在视野外时会把 (-1,-1) 发过来；这种坐标绝不能喂给 FA2
+            static uint64_t lastBadWarn = 0;
+            uint64_t nowBad = GetTickCount64();
+            if (nowBad - lastBadWarn > 5000) {
+                lastBadWarn = nowBad;
+                Logger::Info("[Collab] ignore invalid cursor from id=%u cell=(%d,%d)",
+                             c.player, (int)c.cx, (int)c.cy);
+            }
+            pc.has = false;
+            pc.hasSel = false;
+            return;
+        }
         pc.cx = c.cx; pc.cy = c.cy; pc.has = true;
         pc.hasSel = c.hasSel;
         pc.sel = c.sel;
@@ -635,6 +666,8 @@ void PaintOverlay(HWND hWnd)
     if (view) {
         for (auto& kv : g_peers) {
             if (!kv.second.hasSel) continue;
+            if (!CellInRange(kv.second.sel.x0, kv.second.sel.y0) ||
+                !CellInRange(kv.second.sel.x1, kv.second.sel.y1)) continue;
             int px[4], py[4];
             MapToClient(view, kv.second.sel.x0, kv.second.sel.y0, px[0], py[0]);
             MapToClient(view, kv.second.sel.x1, kv.second.sel.y0, px[1], py[1]);
@@ -668,6 +701,7 @@ void PaintOverlay(HWND hWnd)
             int cx1 = cx0 + 15, cy1 = cy0 + 15;
             if (cx1 >= g_mapW) cx1 = g_mapW - 1;   // 贴边块要裁到地图内，否则坐标换算会跑飞
             if (cy1 >= g_mapH) cy1 = g_mapH - 1;
+            if (!CellInRange(cx0, cy0) || !CellInRange(cx1, cy1)) continue;
             // 等距投影下对角两点会退化成同一个 x（同一条斜线），必须取四角包围盒
             int px[4], py[4];
             MapToClient(view, cx0, cy0, px[0], py[0]);
@@ -878,6 +912,7 @@ void CCollabExt::ProgramStartupInit()
     g_selfTestObject = ReadIni("SelfTestObject", "0") == "1";
     g_selfTestObjectWalk = ReadIni("SelfTestObjectWalk", "0") == "1";
     g_selfTestDeleteDelayMs = (uint32_t)atoi(ReadIni("SelfTestDeleteDelayMs", "0").c_str());
+    g_selfTestBadCursor = ReadIni("SelfTestBadCursor", "0") == "1";
     g_iniDeleteSync = ReadIni("IniDeleteSync", "1") == "1";
     g_showHud = ReadIni("Hud", "1") == "1";
     g_showPlayerList = ReadIni("PlayerList", "1") == "1";
@@ -1098,6 +1133,10 @@ void CCollabExt::Tick()
             int mx = 0, my = 0;
             POINT p{view->MouseCurrentPosition.x, view->MouseCurrentPosition.y};
             ClientToMap(view, p, mx, my);
+            if (!CellInRange(mx, my)) {
+                // 鼠标不在有效格子上（视图外 / 地图菱形外）：本帧不发光标，避免对端拿 (-1,-1) 去换算
+                mx = -1; my = -1;
+            }
             c.cx = (int16_t)mx;
             c.cy = (int16_t)my;
             c.vx = (int32_t)view->ViewPosition.x;
@@ -1120,6 +1159,15 @@ void CCollabExt::Tick()
                     c.sel.x0 = (int16_t)minX; c.sel.y0 = (int16_t)minY;
                     c.sel.x1 = (int16_t)maxX; c.sel.y1 = (int16_t)maxY;
                 }
+            }
+
+            if (g_selfTestBadCursor) {
+                static int badSeq = 0;
+                ++badSeq;
+                if (badSeq % 40 < 20) { c.cx = -1; c.cy = -1; }
+                else { c.cx = 30000; c.cy = 30000; }
+            } else if (mx < 0 || my < 0) {
+                c.cx = -1; c.cy = -1;   // 让对端 OnCursor 走"忽略"分支
             }
 
             char key[128];

@@ -28,6 +28,7 @@
 | 地形 + 覆盖图（矿石等）**逐格增量**同步（约 200ms） | ✅ |
 | **物件同步**：建筑 / 车辆 / 步兵 / 飞机（约 0.5s，含渲染刷新） | ✅ v0.4 |
 | **删除同步**：删建筑 / 单位 / 触发 → 对端同步删除 | ✅ v0.4.1（默认开） |
+| **崩溃修复**：对端光标跑出地图不再让 FA2 崩 | ✅ v0.4.2 |
 | 地图内嵌 INI 节同步（Triggers / Events / Actions / TeamTypes / TaskForces / ScriptTypes / Waypoints / Houses…） | ✅ |
 | 触发按 ID 三方合并（不同键共存，同键冲突记日志） | ✅ |
 | 16×16 区块租约：别人占着就改不动，硬改会被还原（撤销也一样） | ✅ |
@@ -40,7 +41,7 @@
 
 ## 给"只用"的人
 
-不需要编译。直接下载 **[FA2spCollab_v0.4.1.zip](https://github.com/SwampyVoyage749/fa2collab/releases/download/v0.4.1/FA2spCollab_v0.4.1.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：
+不需要编译。直接下载 **[FA2spCollab_v0.4.2.zip](https://github.com/SwampyVoyage749/fa2collab/releases/download/v0.4.2/FA2spCollab_v0.4.2.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：
 
 1. 备份地编目录里的 `FA2sp.dll`
 2. 用包里的 `FA2sp.dll` 覆盖

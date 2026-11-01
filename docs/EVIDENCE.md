@@ -118,7 +118,18 @@ INI 节同步               PASS
 | 空白图：画面出现建筑 / 删除后消失（像素差 1195） | PASS |
 | 空白图：删除后与初始画面**逐像素一致** | PASS（diff=0） |
 | 截图 | `evidence/deltest_presets_tem_1_before.png` / `_2_placed.png` / `_3_deleted.png` |
-| 压测 | `soak_objects.ps1`（SelfTestDeleteDelayMs=4000，放/删抖动）5 分钟：0 异常 / 0 崩溃 / 内存持平 |
+| 压测 | `soak_objects.ps1`（SelfTestDeleteDelayMs=4000，放/删抖动）5 分钟：37 放 / 37 删 / 对端删 37 / 重建 78+75 / 0 异常 / 0 崩溃 / 内存 240→229 MB |
 
 > 真实图（MO）上像素差只作参考：已有 282 个建筑可能遮挡注入点，且水面/灯光有动画；
 > 判定以建筑计数与日志为准。
+
+## 非法坐标崩溃回归（v0.4.2，2026-11-01 19:0x）
+
+复现：`powershell -ExecutionPolicy Bypass -File crashtest.ps1`（房主广播 (-1,-1) 与 (30000,30000)）
+
+| 断言 | 结果 |
+|---|---|
+| 对端日志 `ignore invalid cursor` | PASS |
+| 对端进程存活 | PASS |
+| 两边无 `snapshot-*` 崩溃快照 | PASS |
+| 无 `exception in Tick` / `Exception handler fired` | PASS |
