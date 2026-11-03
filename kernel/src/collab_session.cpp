@@ -95,6 +95,50 @@ static CursorState ReadCursor(Reader& rd) {
 constexpr uint64_t kPingIntervalMs = 2000;
 constexpr uint64_t kTimeoutMs = 30000;
 
+static bool ValidLeaseRect(const Rect& r) {
+    return r.x0 >= 0 && r.y0 >= 0 && r.x1 >= 0 && r.y1 >= 0 &&
+           r.x0 < 64 && r.y0 < 64 && r.x1 < 64 && r.y1 < 64;
+}
+
+static bool ValidPayload(MsgType t, const void* data, size_t len, bool fromHost) {
+    Reader r(data, len);
+    switch (t) {
+    case MsgType::Hello: r.str(); r.u32(); r.str(); break;
+    case MsgType::Welcome: {
+        r.u32(); r.u32(); r.u32(); unsigned n = r.u16();
+        for (unsigned i=0; i<n && r.ok; ++i) { r.u32(); r.str(); }
+        r.u32(); r.str(); break;
+    }
+    case MsgType::PeerJoin: r.u32(); r.str(); break;
+    case MsgType::PeerLeave: r.u32(); break;
+    case MsgType::Cursor: ReadCursor(r); break;
+    case MsgType::LeaseReq: case MsgType::LeaseRelease:
+        if (!ValidLeaseRect(ReadRect(r))) return false;
+        break;
+    case MsgType::LeaseGrant:
+        r.u32(); if (!ValidLeaseRect(ReadRect(r))) return false; r.u32(); break;
+    case MsgType::LeaseDeny:
+        if (!ValidLeaseRect(ReadRect(r))) return false; r.u32(); break;
+    case MsgType::TileDelta: {
+        uint32_t chunk = r.u32(), n = r.u32();
+        if (!r.ok || ChunkX(chunk) >= 64 || ChunkY(chunk) >= 64 ||
+            n > 256 || n != (len - r.off) / 32 || (len - r.off) % 32) return false;
+        r.off = len; break;
+    }
+    case MsgType::IniSection: {
+        if (r.str().empty()) return false;
+        unsigned n = r.u16();
+        for (unsigned i=0; i<n && r.ok; ++i) { r.str(); r.str(); }
+        break;
+    }
+    case MsgType::Chat: if (fromHost) r.u32(); r.str(); break;
+    case MsgType::Ping: r.u32(); break;
+    case MsgType::Bye: break;
+    default: return false;
+    }
+    return r.ok && r.off == len;
+}
+
 // ---------------- Host ----------------
 class HostSession : public Session {
 public:
@@ -201,9 +245,10 @@ private:
     };
 
     void DropConn(Conn* c) {
-        if (!c || !c->link->valid()) return;
+        if (!c) return;
         c->link->close();
         if (c->hello) {
+            c->hello = false;
             leases_.ClearOwner(c->id);
             Writer w; w.u32(c->id);
             Broadcast(MsgType::PeerLeave, w, c->id);
@@ -219,13 +264,15 @@ private:
     }
 
     void Handle(Conn& c, MsgType t, const void* data, size_t len, uint64_t now) {
+        if ((!c.hello && t != MsgType::Hello) || (c.hello && t == MsgType::Hello) ||
+            !ValidPayload(t, data, len, false)) { DropConn(&c); return; }
         Reader rd(data, len);
         switch (t) {
         case MsgType::Hello: {
             c.name = rd.str();
             uint32_t hash = rd.u32();
-            rd.str();  // build
-            if (hash != mapHash_) { c.link->close(); return; }
+            std::string build = rd.str();
+            if (hash != mapHash_ || build != kBuildTag) { DropConn(&c); return; }
 
             // 先取"其他人"，再把自己标记为已握手，避免 Welcome 里出现自己
             std::vector<Peer> others = Peers();
@@ -236,6 +283,7 @@ private:
             w.u32(c.id); w.u32(mapHash_); w.u32(ttl_);
             w.u16(uint16_t(others.size()));
             for (auto& p : others) { w.u32(p.id); w.str(p.name); }
+            w.u32(kProtoVersion); w.str(kBuildTag);
             c.link->send(MsgType::Welcome, w);
 
             Writer j; j.u32(c.id); j.str(c.name);
@@ -320,7 +368,7 @@ private:
             break;
         }
         case MsgType::Bye:
-            c.link->close();
+            DropConn(&c);
             break;
         default:
             break;
@@ -386,7 +434,13 @@ public:
     void SendTileDelta(uint32_t chunk, const std::vector<CellEdit>& edits) override {
         if (!Connected()) return;
         // 先排队，拿到租约再发，避免“未授权就广播”的竞态
-        pending_[chunk] = edits;
+        auto& pending = pending_[chunk];
+        for (const auto& edit : edits) {
+            auto it = std::find_if(pending.begin(), pending.end(),
+                [&](const CellEdit& old) { return old.index == edit.index; });
+            if (it == pending.end()) pending.push_back(edit);
+            else *it = edit;
+        }
         RequestLease(Rect{int16_t(ChunkX(chunk)), int16_t(ChunkY(chunk)),
                           int16_t(ChunkX(chunk)), int16_t(ChunkY(chunk))});   // 块坐标
     }
@@ -429,6 +483,7 @@ public:
                     connected_ = true;
                     peers_.clear();
                     myId_ = 0;
+                    welcomed_ = false;
                     lastPing_ = now;
                     lastRecv_ = now;
                 }
@@ -438,6 +493,7 @@ public:
         if (!link_.pump()) {
             if (connected_) { connected_ = false; if (sink_) sink_->OnDisconnected(); }
             link_.close();
+            pending_.clear();
             return;
         }
         MsgType t; std::vector<uint8_t> p;
@@ -475,9 +531,25 @@ private:
     }
 
     void Handle(MsgType t, const void* data, size_t len) {
+        if ((!welcomed_ && t != MsgType::Welcome) || (welcomed_ && t == MsgType::Welcome) || !ValidPayload(t, data, len, true)) {
+            link_.close(); connected_ = false; pending_.clear();
+            if (sink_) sink_->OnDisconnected();
+            return;
+        }
         Reader rd(data, len);
         switch (t) {
         case MsgType::Welcome: {
+            Reader check(data, len);
+            check.u32(); uint32_t hash = check.u32(); check.u32();
+            unsigned count = check.u16();
+            for (unsigned i=0; i<count; ++i) { check.u32(); check.str(); }
+            uint32_t version = check.u32(); std::string build = check.str();
+            if (hash != mapHash_ || version != kProtoVersion || build != kBuildTag) {
+                link_.close(); connected_ = false; pending_.clear();
+                if (sink_) sink_->OnDisconnected();
+                return;
+            }
+            welcomed_ = true;
             myId_ = rd.u32();
             rd.u32();           // mapHash
             rd.u32();           // ttl
@@ -584,6 +656,7 @@ private:
     uint32_t myId_ = 0;
     bool connected_ = false;
     bool stopped_ = false;
+    bool welcomed_ = false;
     std::vector<Peer> peers_;
     std::map<uint32_t, std::vector<CellEdit>> pending_;
     uint64_t lastPing_ = 0;

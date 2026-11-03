@@ -19,6 +19,8 @@ struct Recorder : Sink {
     std::vector<CursorState> cursors;
     std::vector<std::pair<Rect, bool>> leases;
     std::vector<std::pair<uint32_t, size_t>> tiles;
+    std::map<int, int> cellTiles;
+    unsigned iniCount = 0;
     std::vector<std::string> chats;
     bool disconnected = false;
 
@@ -26,7 +28,11 @@ struct Recorder : Sink {
     void OnPeerLeave(uint32_t id) override { left.push_back(id); }
     void OnCursor(const CursorState& c) override { cursors.push_back(c); }
     void OnLeaseResult(const Rect& r, bool ok, uint32_t, uint32_t) override { leases.emplace_back(r, ok); }
-    void OnTileDelta(uint32_t, uint32_t chunk, const std::vector<CellEdit>& e) override { tiles.emplace_back(chunk, e.size()); }
+    void OnTileDelta(uint32_t, uint32_t chunk, const std::vector<CellEdit>& e) override {
+        tiles.emplace_back(chunk, e.size());
+        for (auto& cell : e) cellTiles[cell.index] = cell.tile;
+    }
+    void OnIniSection(const std::string&, const std::vector<std::pair<std::string,std::string>>&) override { ++iniCount; }
     void OnChat(uint32_t, const std::string& t) override { chats.push_back(t); }
     void OnDisconnected() override { disconnected = true; }
 };
@@ -154,6 +160,107 @@ int main() {
         M remote5 = base1; remote5["4"] = "R";
         auto r5 = MergeIniSection(base1, local5, remote5);
         CHECK(r5.merged.count("3") && r5.merged.count("4") && r5.conflicts.empty(), "合并: 双方新增键共存");
+    }
+    // Multiple edits queued before the lease arrives must accumulate by cell.
+    {
+        CellEdit first, second, latest;
+        first.index = 200; first.tile = 10;
+        second.index = 201; second.tile = 20;
+        latest = first; latest.tile = 30;
+        ca->SendTileDelta(ChunkKey(3,3), {first});
+        ca->SendTileDelta(ChunkKey(3,3), {second});
+        ca->SendTileDelta(ChunkKey(3,3), {latest});
+        Pump(all2);
+        CHECK(ra.cellTiles[200] == 30 && ra.cellTiles[201] == 20,
+              "pending delta keeps different cells and latest value for the same cell");
+        CHECK(rc.cellTiles[200] == 30 && rc.cellTiles[201] == 20,
+              "merged pending delta reaches other peers");
+    }
+    // Raw peers exercise packet validation independently of our serializer.
+    auto rawPeer = [&]() {
+        auto link = std::make_unique<Link>();
+        SOCKET sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+        sockaddr_in a{}; a.sin_family = AF_INET; a.sin_port = htons(port);
+        InetPtonA(AF_INET, "127.0.0.1", &a.sin_addr);
+        if (::connect(sock, (sockaddr*)&a, sizeof(a)) != 0) {
+            closesocket(sock); return std::unique_ptr<Link>();
+        }
+        link->adopt(sock); return link;
+    };
+    auto sendRaw = [&](Link& link, MsgType type, const Writer& w) {
+        link.send(type,w); link.pump(); Pump(all2,10);
+    };
+    auto hello = [&](Link& link, const char* build) {
+        Writer w; w.str("raw"); w.u32(0xAABBCCDD); w.str(build);
+        sendRaw(link,MsgType::Hello,w);
+    };
+    {
+        size_t before = ra.tiles.size();
+        auto raw = rawPeer(); CHECK(raw != nullptr, "raw test connection established");
+        if (raw) {
+            Writer w; w.u32(0); w.u32(0);
+            sendRaw(*raw, MsgType::TileDelta,w);
+            CHECK(ra.tiles.size() == before, "pre-handshake tile packet has no side effects");
+        }
+    }
+    {
+        size_t before = host->Peers().size();
+        auto raw = rawPeer();
+        if (raw) { hello(*raw,"1.5.3"); }
+        CHECK(raw && host->Peers().size() == before, "incompatible legacy build rejected");
+    }
+    {
+        size_t before = ra.tiles.size();
+        auto raw = rawPeer();
+        if (raw) {
+            hello(*raw,kBuildTag);
+            Writer w; w.u32(0); w.u32(0xFFFFFFFF);
+            sendRaw(*raw,MsgType::TileDelta,w);
+        }
+        CHECK(raw && ra.tiles.size() == before, "huge wire count rejected before allocation");
+    }
+    {
+        unsigned before = ra.iniCount;
+        auto raw = rawPeer();
+        if (raw) {
+            hello(*raw,kBuildTag);
+            Writer w; w.str("Structures"); w.u16(1); w.str("0");
+            sendRaw(*raw,MsgType::IniSection,w);
+        }
+        CHECK(raw && ra.iniCount == before, "truncated INI cannot apply partial section or delete keys");
+    }
+    {
+        auto raw = rawPeer(); size_t before = ra.left.size();
+        if (raw) { hello(*raw,kBuildTag); Writer w; sendRaw(*raw,MsgType::Bye,w); }
+        CHECK(raw && ra.left.size() == before+1, "explicit Bye while socket stays open notifies leave");
+    }
+    {
+        CellEdit e; e.index = 15;
+        CHECK(CellEditInChunk(e, 1024, 32, ChunkKey(0,0)), "valid cell at chunk edge accepted");
+        CHECK(!CellEditInChunk(e, 15, 32, ChunkKey(0,0)), "cell index equal to allocation count rejected");
+        CHECK(!CellEditInChunk(e, 1024, 0, ChunkKey(0,0)), "zero stride rejected before division");
+        CHECK(!CellEditInChunk(e, 1024, 32, ChunkKey(1,0)), "cell cannot write outside leased chunk");
+        e.index = -1;
+        CHECK(!CellEditInChunk(e, 1024, 32, 0), "negative cell index rejected");
+        e.index = 0x7FFFFFFF;
+        CHECK(!CellEditInChunk(e, 1024, 32, 0), "large positive index rejected");
+        e.index = 0; e.overlay = 256;
+        CHECK(!CellEditInChunk(e, 1024, 32, 0), "out of range field rejected before narrowing");
+    }
+    {
+        Listener server; CHECK(server.open(0), "legacy server listener established");
+        Recorder rec;
+        auto client = CreateClient("127.0.0.1", server.port(), "new", 123, &rec);
+        Link peer;
+        CHECK(client && server.accept(peer), "new client connects to legacy server");
+        if (client && peer.valid()) {
+            Writer w; w.u32(1); w.u32(123); w.u32(30000); w.u16(0);
+            peer.send(MsgType::Welcome,w); peer.pump(); client->Tick(GetTickCount64());
+            CHECK(!client->Connected() && rec.joined.empty() && rec.disconnected,
+                  "legacy Welcome rejected before any peer callback");
+            client->Shutdown();
+        }
+        server.close();
     }
     host->Shutdown();
     printf("\n%s (%d 项失败)\n", g_fail == 0 ? "ALL PASS" : "FAILED", g_fail);

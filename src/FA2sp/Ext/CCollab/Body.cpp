@@ -9,6 +9,7 @@
 #include <CObjectDatas.h>
 #include <windows.h>
 #include <map>
+#include <algorithm>
 #include <set>
 #include <memory>
 #include <cstdio>
@@ -44,6 +45,7 @@ struct PeerCursor {
     collab::Rect sel;
 };
 std::map<uint32_t, PeerCursor> g_peers;
+std::map<uint32_t, uint64_t> g_leaseRetryAt;
 std::set<uint32_t> g_deniedChunks;   // 被别人占住、本地改不动的块
 std::map<uint32_t, std::vector<collab::CellEdit>> g_remoteShadow;  // 块 -> 收到的远端状态
 std::string g_mapPath;
@@ -193,7 +195,7 @@ void ScanChunks(collab::Session* s, bool warmup)
             if (g_deniedChunks.count(ckNow) && shIt != g_remoteShadow.end()) {
                 int restored = 0;
                 for (auto& e : shIt->second) {
-                    if (e.index < 0) continue;
+                    if (e.index < 0 || e.index >= CMapData::Instance->CellDataCount) continue;
                     CellData& c = cells[e.index];
                     if (c.TileIndex != (unsigned short)e.tile || c.Height != (unsigned char)e.height ||
                         c.Overlay != (unsigned char)e.overlay || c.OverlayData != (unsigned char)e.ovdata ||
@@ -211,6 +213,10 @@ void ScanChunks(collab::Session* s, bool warmup)
                     Logger::Info("[Collab] protected chunk (%d,%d): restored %d cells (owned by another player)",
                                  cx, cy, restored);
                     if (CFinalSunDlg::Instance) CFinalSunDlg::Instance->Update();
+                }
+                if (s && GetTickCount64() >= g_leaseRetryAt[ckNow]) {
+                    g_leaseRetryAt[ckNow] = GetTickCount64() + 1000;
+                    s->RequestLease(collab::Rect{(int16_t)cx,(int16_t)cy,(int16_t)cx,(int16_t)cy});
                 }
                 continue;   // 这块不参与本地 diff / 发送
             }
@@ -244,6 +250,7 @@ void ScanChunks(collab::Session* s, bool warmup)
                 if (s) {
                     collab::Rect r{(int16_t)cx, (int16_t)cy, (int16_t)cx, (int16_t)cy};  // 块坐标
                     s->RequestLease(r);
+                    if (g_isHost && g_deniedChunks.count(collab::ChunkKey(cx, cy))) continue;
                     s->SendTileDelta(collab::ChunkKey(cx, cy), edits);
                 }
                 Logger::Info("[Collab] local chunk (%d,%d) changed cells=%u", cx, cy, (unsigned)edits.size());
@@ -294,10 +301,7 @@ void ScanIni(collab::Session* s)
         } else {
             g_iniHash[name] = h;
             uint64_t nowTick = GetTickCount64();
-            auto rt = g_iniRemoteTick.find(name);
-            if (rt != g_iniRemoteTick.end() && nowTick - rt->second < 1000) {
-                continue;   // 刚被远端覆盖，这一跳是回弹，不再发回去
-            }
+            // ApplyIniSection already records the received hash; a different hash is a real edit.
             g_iniLocalTick[name] = nowTick;
         }
         if (s) {
@@ -450,7 +454,7 @@ void ApplyRemoteDelta(uint32_t chunk, const std::vector<collab::CellEdit>& edits
 
     int applied = 0;
     for (auto& e : edits) {
-        if (e.index < 0) continue;
+        if (!collab::CellEditInChunk(e, CMapData::Instance->CellDataCount, g_stride, chunk)) continue;
         CellData& c = cells[e.index];
         if (c.TileIndex == (unsigned short)e.tile && c.Height == (unsigned char)e.height &&
             c.Overlay == (unsigned char)e.overlay && c.OverlayData == (unsigned char)e.ovdata &&
@@ -469,7 +473,12 @@ void ApplyRemoteDelta(uint32_t chunk, const std::vector<collab::CellEdit>& edits
     {
         // 记录该块的远端基准，后续用来挡住本地撤销/误改
         auto& shadow = g_remoteShadow[chunk];
-        shadow = edits;
+        for (const auto& e : edits) {
+            if (!collab::CellEditInChunk(e, CMapData::Instance->CellDataCount, g_stride, chunk)) continue;
+            auto it = std::find_if(shadow.begin(), shadow.end(),
+                [&](const collab::CellEdit& old) { return old.index == e.index; });
+            if (it == shadow.end()) shadow.push_back(e); else *it = e;
+        }
     }
 
     if (applied > 0) {
@@ -498,6 +507,8 @@ public:
     void OnPeerLeave(uint32_t id) override
     {
         g_peers.erase(id);
+        g_deniedChunks.clear();
+        g_leaseRetryAt.clear();
         Logger::Info("[Collab] peer left: id=%u", id);
     }
     void OnCursor(const collab::CursorState& c) override
@@ -567,6 +578,8 @@ public:
             Logger::Warn("[Collab] disconnected, retrying (single-player meanwhile)");
         }
         g_peers.clear();
+        g_deniedChunks.clear();
+        g_leaseRetryAt.clear();
         if (g_overlay) InvalidateRect(g_overlay, nullptr, TRUE);
     }
 };
@@ -740,6 +753,7 @@ void RestartSession()
     g_deniedChunks.clear();
     g_remoteShadow.clear();
     g_iniHash.clear();
+    g_iniBase.clear();
     g_iniLocalTick.clear();
     g_iniRemoteTick.clear();
     g_mapPath.clear();      // 触发 Tick 里重新建立会话
@@ -874,9 +888,14 @@ static void EnsureSession()
         g_session->Shutdown();
         g_session.reset();
         g_peers.clear();
+        g_deniedChunks.clear();
+        g_leaseRetryAt.clear();
         g_lastCursorKey.clear();
         Logger::Info("[Collab] map changed, session restarted");
     }
+    g_deniedChunks.clear(); g_leaseRetryAt.clear(); g_remoteShadow.clear();
+    g_iniHash.clear(); g_iniBase.clear(); g_iniLocalTick.clear(); g_iniRemoteTick.clear();
+    g_snapshotPending = false; g_snapChunkCursor = 0;
     g_mapPath = mp;
     g_mapHash = h;
     g_sessionStart = GetTickCount64();

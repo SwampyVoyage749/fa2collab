@@ -8,8 +8,8 @@
 namespace collab {
 
 constexpr uint32_t kMagic = 0x43464132u;   // "2AFC" 小端
-constexpr uint32_t kProtoVersion = 1;
-constexpr const char* kBuildTag = "1.5.3";
+constexpr uint32_t kProtoVersion = 2;
+constexpr const char* kBuildTag = "FA2spCollab-0.5-dev-proto2";
 
 // 头：magic(4) type(2) flags(2) len(4)
 constexpr size_t kHeaderSize = 12;
@@ -82,5 +82,15 @@ struct CellEdit {
 inline uint32_t ChunkKey(int cx, int cy) { return (uint32_t(cy & 0xFFFF) << 16) | uint32_t(cx & 0xFFFF); }
 inline int ChunkX(uint32_t k) { return int(k & 0xFFFF); }
 inline int ChunkY(uint32_t k) { return int((k >> 16) & 0xFFFF); }
+
+// Validate before touching editor memory or retaining a remote shadow.
+inline bool CellEditInChunk(const CellEdit& e, int count, int stride, uint32_t chunk) {
+    if (stride <= 0 || e.index < 0 || e.index >= count) return false;
+    return e.index % stride / 16 == ChunkX(chunk) &&
+           e.index / stride / 16 == ChunkY(chunk) &&
+           e.height >= 0 && e.height <= 255 && e.tile >= 0 && e.tile <= 65535 &&
+           e.sub >= 0 && e.sub <= 255 && e.overlay >= 0 && e.overlay <= 255 &&
+           e.ovdata >= 0 && e.ovdata <= 255;
+}
 
 } // namespace collab
