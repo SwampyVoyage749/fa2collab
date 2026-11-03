@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.5.0 — 2026-11-04
+
+### 新增
+
+- **悬停信息增强（做图向）**：鼠标停在建筑 / 车辆 / 步兵 / 飞机上时，在原有信息行末尾多一行
+  Cost: 900, Sight: 8, Speed: 6（建筑只有 Cost 与 Sight），数据直接取自地图规则（rules.ini）
+- 面板不再只在「对象/指针工具（ESC）」下出现：**按 Ctrl+H 可在任意工具下常显**（本机临时状态，不写 ini）
+- 新配置项 [ExtConfigs] InGameDisplay.GameStats（默认 	rue）：设为 alse 可完全不显示这行
+
+### 说明
+
+- 改动落在上游 FA2sp 源码（CIsoView/Body.OnMouseMove.cpp 等），改法见 patches/hover-gamestats.md
+- 已验证：犀牛重型坦克（HTNK）Cost: 900, Sight: 8, Speed: 6；建筑只显示 Cost/Sight
+
 ## v0.4.2 — 2026-11-01
 
 ### 修复
