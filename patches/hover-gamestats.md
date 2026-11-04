@@ -163,3 +163,9 @@ if (stats.GetLength() > 0)
 - 只处理建筑；单位/步兵/飞行器动画未做。
 - 未接地图 `[Lighting]` 光照与受损/朝向状态。
 - 开关只做全局，不区分单栋建筑。
+## 追加修复（2026-11-04 下午）
+
+1. **定时器被误杀**：`CFinalSunDlg`/`CIsoView` 里的 `WM_TIMER 0xFA26` 与 Ctrl+P 切换只认 `CIsoViewExt::PreviewMode`，导致只开 ini 开关 `InGameDisplay.AnimPreview` 时定时器立刻被 KillTimer，动画不动。两处判断统一改为 `CIsoViewExt::PreviewMode || ExtConfigs::InGameDisplay_AnimPreview`。
+2. **建筑动画被自身遮挡**：`DrawBuilding` 末尾才调用 `DrawPreviewAnimOverlay(pType->ID, x1, y1, ...)`，之前插在建筑本体绘制之前会被覆盖。
+3. **单位/步兵接入**：`DrawPreviewAnimOverlay()` 抽成公共函数后，在 `DrawUnit`（`draw()` 之后，y 用 `y + 15 - (HoveringUnit ? 10 : 0) - bridge_offset`）与 `DrawInfantry`（`draw()` 之后，用 `x1, y1`）各调用一次。
+4. **增量编译陷阱**：改完源码后 msbuild 认为 up-to-date（obj 时间比源文件新）而不重编，需 `(Get-Item $f).LastWriteTime = Get-Date` 触碰后再编。
