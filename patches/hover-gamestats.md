@@ -179,3 +179,16 @@ if (stats.GetLength() > 0)
 | 预览开，100ms 重绘 | **14.3%** | 245.4 → 245.3 MB（无泄漏） |
 
 据此把重绘定时器从 40ms 调到 **100ms**（10 fps），CPU 降到 15% 以下，动画仍连续（连续帧像素差非空）。
+## 单位/步兵动画验证（2026-11-04 晚）
+
+在 `c_battlecity.map` 上打开预览，日志出现（节选）：
+
+```
+[PreviewOverlay] type=HTNK frames=none
+[PreviewOverlay] type=TTNK frames=none
+[PreviewOverlay] type=TRUCKB frames=none
+[PreviewOverlay] type=NANRCT frames=yes
+[PreviewOverlay] type=TESLA  frames=yes
+```
+
+结论：**单位/步兵确实走到了叠加层**（代码接入正确），但 MO 的车辆 art 没有 `Animation` 段，所以没有帧可播；能看到动画的只有 art 里定义了动画的建筑。诊断日志每种类型只记一次、上限 200 种，保留以便排查「为什么这个物件不动」。
