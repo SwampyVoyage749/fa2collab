@@ -126,3 +126,40 @@ if (stats.GetLength() > 0)
 
 - 车辆：`Cost: 900, Sight: 8, Speed: 6`（犀牛重型坦克 HTNK）
 - 建筑：`Cost: ..., Sight: ...`（无 Speed）
+
+---
+
+# 追加：预览模式（Ctrl+P，v0.5.1 草案）
+
+目标：按热键让整张图的建筑按 art.ini 播放动画，替代「悬停才动」的做法。
+
+## 改动点
+
+1. `Ext/CIsoView/Body.h` / `Body.cpp`：新增 `static bool CIsoViewExt::PreviewMode;`（默认 false）。
+2. `Ext/CIsoView/Body.DrawObjects.cpp`：在结构绘制处插入
+   ```cpp
+   if (CIsoViewExt::PreviewMode || ExtConfigs::InGameDisplay_AnimPreview) {
+       // 首次进入时 SetTimer(view, 0xFA26, 40) 触发连续重绘
+       // 每个建筑类型限流 1 秒调一次 CLoadingExt::PreloadAnimPreview(pType->ID)
+       auto pAnimFrame = CLoadingExt::GetAnimPreviewFrame(pType->ID, (int)GetTickCount());
+       if (ImageDataClassSafe::IsValidImage(pAnimFrame)) {
+           const int ax = x1 - pAnimFrame->FullWidth / 2;
+           const int ay = y1 - pAnimFrame->FullHeight / 2;
+           if (ExtConfigs::DirectXRendering)
+               CIsoViewExt::DirectXNormal(ax, ay, pAnimFrame, pAnimFrame->pPalette, 1.0f, objRender.HouseColor, -1, false);
+           else
+               CIsoViewExt::BlitSHPTransparent(pThis, ddsd.lpSurface, window, boundary,
+                   ax, ay, pAnimFrame, pAnimFrame->pPalette, 255, objRender.HouseColor);
+       }
+   }
+   ```
+   **注意**：绝不要把这些帧 push 进 `AlphaImagesToDraw` —— 那条通道是把像素值当亮度系数乘到背景上（用于光照/变暗），放颜色帧会得到整块发黑的图。
+3. `Ext/CFinalSunDlg/Body.cpp`：`case WM_TIMER:` 加 `0xFA26` 分支做重绘；`case WM_KEYDOWN:` 加 Ctrl+P 切换（`GetKeyState(VK_CONTROL)`）。
+4. `Ext/CIsoView/Body.cpp`：`CIsoViewExt::PreTranslateMessageExt` 里也挂一份 Ctrl+P 与 `WM_TIMER 0xFA26` 处理（键盘消息实际落在 iso view 上）。
+
+## 已知不足
+
+- 动画帧按格子居中绘制，未接 art 的 `ActiveAnimX/Y` 偏移。
+- 只处理建筑；单位/步兵/飞行器动画未做。
+- 未接地图 `[Lighting]` 光照与受损/朝向状态。
+- 开关只做全局，不区分单栋建筑。
