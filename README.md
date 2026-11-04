@@ -30,6 +30,7 @@
 | **删除同步**：删建筑 / 单位 / 触发 → 对端同步删除 | ✅ v0.4.1（默认开） |
 | **崩溃修复**：对端光标跑出地图不再让 FA2 崩 | ✅ v0.4.2 |
 | **悬停信息**：建筑/车辆/步兵/飞机 显示 Cost / Sight / Speed（Ctrl+H 任意工具下常显） | ✅ v0.5 |
+| **预览模式**：`Ctrl+P` 让地图里带 art 动画的建筑按 `Animation` 段真正动起来（关预览自动恢复原光照） | ✅ v0.5.1（实验性） |
 | 地图内嵌 INI 节同步（Triggers / Events / Actions / TeamTypes / TaskForces / ScriptTypes / Waypoints / Houses…） | ✅ |
 | 触发按 ID 三方合并（不同键共存，同键冲突记日志） | ✅ |
 | 16×16 区块租约：别人占着就改不动，硬改会被还原（撤销也一样） | ✅ |
@@ -40,6 +41,20 @@
 
 | 公网/NAT 穿透 | ❌ 只支持局域网或虚拟局域网（Radmin VPN / UU 等） |
 
+## 预览模式（v0.5.1，实验性）
+
+做图时想直接看建筑"动起来"，不用开游戏：
+
+1. 打开地图
+2. 按 **`Ctrl+P`** —— 地图里所有在 art 里定义了 `Animation` 的建筑开始按帧播放（默认 10 fps，CPU 约 +13%）
+3. 再按一次 `Ctrl+P` 关闭
+
+细节：
+
+- 开预览时，如果地图带 `[Lighting]` 段，会自动把光照切到「正常」；关预览时恢复你原来的光照设置
+- 只有**建筑**会动（车辆/步兵在 MO 的 art 里没有 `Animation` 段，没帧可播 —— 日志 `[PreviewOverlay] type=HTNK frames=none` 就是这种情况）
+- 动画按格子居中绘制，没有接 `ActiveAnimX/Y` 偏移，个别建筑可能偏一点
+- 想让它一直开着，可以在 `Options` 里把 `InGameDisplay.AnimPreview` 打开
 ## 给"只用"的人
 
 不需要编译。直接下载 **[FA2spCollab_v0.4.2.zip](https://github.com/SwampyVoyage749/fa2collab/releases/download/v0.4.2/FA2spCollab_v0.4.2.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：

@@ -1,12 +1,13 @@
 # Changelog
 
-## [未发布] 预览模式（Ctrl+P，实验性）
+## v0.5.1 — 2026-11-04（预览模式）
 
 - 新增 `CIsoViewExt::PreviewMode`：热键 **Ctrl+P** 切换，开启后整张图按 art.ini 播放建筑动画，40ms 一帧重绘。
 - `ExtConfigs` 里的 `InGameDisplay.AnimPreview` 也能直接开启预览模式（Options 里可勾）。
 - 修复：动画帧此前被塞进 `AlphaImagesToDraw`（光照通道）导致整块发黑；改为正常透明精灵绘制。
 - 修复 ini 开关驱动时定时器被误杀、建筑动画被自身遮挡；单位/步兵也接入预览动画。
 - 预览重绘间隔 40ms → 100ms，CPU 从 31.7% 降到 14.3%（基线 1.2%），内存无增长。
+- 开预览时若地图有 `[Lighting]` 段，自动切到「正常」光照；关预览恢复原设置。
 - 已知不足：未接 art 偏移量 ActiveAnimX/Y；未接光照/受损/朝向。
 
 
