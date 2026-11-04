@@ -6,6 +6,7 @@
 - `ExtConfigs` 里的 `InGameDisplay.AnimPreview` 也能直接开启预览模式（Options 里可勾）。
 - 修复：动画帧此前被塞进 `AlphaImagesToDraw`（光照通道）导致整块发黑；改为正常透明精灵绘制。
 - 修复 ini 开关驱动时定时器被误杀、建筑动画被自身遮挡；单位/步兵也接入预览动画。
+- 预览重绘间隔 40ms → 100ms，CPU 从 31.7% 降到 14.3%（基线 1.2%），内存无增长。
 - 已知不足：未接 art 偏移量 ActiveAnimX/Y；未接光照/受损/朝向。
 
 

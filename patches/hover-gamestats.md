@@ -169,3 +169,13 @@ if (stats.GetLength() > 0)
 2. **建筑动画被自身遮挡**：`DrawBuilding` 末尾才调用 `DrawPreviewAnimOverlay(pType->ID, x1, y1, ...)`，之前插在建筑本体绘制之前会被覆盖。
 3. **单位/步兵接入**：`DrawPreviewAnimOverlay()` 抽成公共函数后，在 `DrawUnit`（`draw()` 之后，y 用 `y + 15 - (HoveringUnit ? 10 : 0) - bridge_offset`）与 `DrawInfantry`（`draw()` 之后，用 `x1, y1`）各调用一次。
 4. **增量编译陷阱**：改完源码后 msbuild 认为 up-to-date（obj 时间比源文件新）而不重编，需 `(Get-Item $f).LastWriteTime = Get-Date` 触碰后再编。
+## 性能实测（2026-11-04 晚，c_battlecity.map 1920x1080 窗口）
+
+| 场景 | CPU | 内存 |
+|---|---|---|
+| 预览关（基线） | 1.2% | 240.9 MB |
+| 预览开，40ms 重绘 | 31.7% | 245.6 MB |
+| 预览开，80ms 重绘 | 17.0% | 243.8 MB |
+| 预览开，100ms 重绘 | **14.3%** | 245.4 → 245.3 MB（无泄漏） |
+
+据此把重绘定时器从 40ms 调到 **100ms**（10 fps），CPU 降到 15% 以下，动画仍连续（连续帧像素差非空）。
