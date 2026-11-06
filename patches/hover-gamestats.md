@@ -192,3 +192,14 @@ if (stats.GetLength() > 0)
 ```
 
 结论：**单位/步兵确实走到了叠加层**（代码接入正确），但 MO 的车辆 art 没有 `Animation` 段，所以没有帧可播；能看到动画的只有 art 里定义了动画的建筑。诊断日志每种类型只记一次、上限 200 种，保留以便排查「为什么这个物件不动」。
+## 预览动画偏移（2026-11-06）
+
+`DrawPreviewAnimOverlay` 在绘制前调用 `GetPreviewAnimOffset(typeID, offX, offY)`：
+读 art.ini 的 `ActiveAnimX` / `ActiveAnimY`（`CINI::Art().GetInteger`，结果按类型缓存），
+把偏移加到动画帧的 x/y 上。
+
+注意：`CINI::Art()` 返回 `CINI&`，要用 `.`（`->` 会报 C2819）；`CINI::CurrentDocument` 是
+`reference<CINI,…>`，反而只能用 `->` —— 这两个在同一个函数里并存，别写混。
+
+实测（MO，c_battlecity）：抽样绘制到的建筑/车辆类型 `ActiveAnimX/Y` 全是 0，所以画面没变化；
+这项改动是给「art 里真的写了偏移」的图用的，默认情况等于不生效。
