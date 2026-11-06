@@ -203,3 +203,21 @@ if (stats.GetLength() > 0)
 
 实测（MO，c_battlecity）：抽样绘制到的建筑/车辆类型 `ActiveAnimX/Y` 全是 0，所以画面没变化；
 这项改动是给「art 里真的写了偏移」的图用的，默认情况等于不生效。
+## 地图静态自检（C 项第一步，2026-11-06）
+
+`Ctrl+Shift+C` 跑一次地图自检，结果写 `FA2sp.log` 的 `[MapCheck]` 行，并在弹窗里显示前 12 条。
+
+检查项（第一版）：
+
+1. `[Tags]` 里的 Tag 指向了不存在的 Trigger（第三段是 trigger id）
+2. `[Triggers]` 里的 Trigger 没有对应 `[Events]`（永远不触发）
+3. `[Triggers]` 里的 Trigger 没有对应 `[Actions]`（触发了也不做事）
+4. `[Events]` / `[Actions]` 条目里数量字段为 0
+
+实现位置：`Ext\CIsoView\Body.cpp` 的 `CIsoViewExt::RunMapSelfCheck(bool bShowDialog)`（声明在 `Body.h`），
+热键挂在 `CIsoViewExt::PreTranslateMessageExt` 的 `WM_KEYDOWN`（Ctrl+Shift+C）。
+
+另有 `ExtConfigs::MapSelfCheckOnLoad`（默认 0）：设 1 时每次开图自动跑一遍、只写日志不弹窗，方便批量排查。
+
+验证（2026-11-06）：`c_battlecity.map` → `[MapCheck] done`（0 问题）；
+把副本的 `[Tags]` 插入 `99999999=0,Broken tag,DEADBEEF` → `[MapCheck] Tag 99999999 -> Trigger DEADBEEF 不存在`。
