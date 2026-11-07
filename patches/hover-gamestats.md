@@ -221,3 +221,18 @@ if (stats.GetLength() > 0)
 
 验证（2026-11-06）：`c_battlecity.map` → `[MapCheck] done`（0 问题）；
 把副本的 `[Tags]` 插入 `99999999=0,Broken tag,DEADBEEF` → `[MapCheck] Tag 99999999 -> Trigger DEADBEEF 不存在`。
+### 引用完整性（第二版，2026-11-07）
+
+在 `[MapCheck]` 里新增两条：
+
+5. `TeamType` 的 `Script=` 指向不存在的 `ScriptTypes`（数据源：`[TeamTypes]` 的值为 id，
+   逐个打开同名 section 读 `Script` 键；存在的脚本 id 取 `[ScriptTypes]` 的值集合）
+6. `[Actions]` 里 `type=7`（建立小队）引用的 TeamType 不存在（动作记录按 8 段解析：
+   `type,p1..p7`，队伍 id 在 `i+2`）
+
+验证（2026-11-07）：把 `c_battlecity.map` 副本的 `Script=01000005` 改成 `DEADBEEF`、
+把一条 `7,1,01000006` 改成 `7,1,BADBAD`，日志出现：
+`[MapCheck] TeamType 01000006 引用的 Script DEADBEEF 不存在` 与
+`[MapCheck] Actions 01000007 建立的队伍 BADBAD 不存在`；完好图仍是 0 问题。
+
+DLL：9,601,536 字节（2026-11-07 09:03:33）。
