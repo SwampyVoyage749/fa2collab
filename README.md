@@ -41,6 +41,27 @@
 
 | 公网/NAT 穿透 | ❌ 只支持局域网或虚拟局域网（Radmin VPN / UU 等） |
 
+## 地图自检（Ctrl+Shift+C）
+
+开图后按 **Ctrl+Shift+C**，扫一遍这张图的引用完整性，结果：
+
+- 弹窗列出问题（显示问题）
+- 同时在地图旁边写一份 地图名.mapcheck.txt（GBK，记事本直接可读）
+
+检查项：
+
+| 检查 | 说明 |
+|---|---|
+| Tag → Trigger | [Tags] 第三段指向的触发器不存在 |
+| Trigger 空 | 没有 [Events] / [Actions]，或数量字段 ≤ 0 |
+| 事件/动作 type=0 | 空事件、空动作 |
+| TeamType → Script | Script= 指向的脚本不存在 |
+| Action type=7 → TeamType | 动作里引用的队伍不存在 |
+
+每条问题都会带上**触发器名字**，方便在 Trigger List 里搜。
+
+想开图即查：FAData.ini 里 [ExtConfigs] 加 MapSelfCheckOnLoad=1。
+
 ## 预览模式（v0.5.1，实验性）
 
 做图时想直接看建筑"动起来"，不用开游戏：

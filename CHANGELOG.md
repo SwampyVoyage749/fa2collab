@@ -1,3 +1,8 @@
+## [未发布] 地图自检（Ctrl+Shift+C，实验性）
+
+- 新增 `CIsoViewExt::RunMapSelfCheck()`：8 类静态检查（Tag→Trigger、空 Events/Actions、type=0、TeamType→Script、Action type=7→TeamType）
+- 结果同时弹窗 + 写 `<地图路径>.mapcheck.txt`（GBK）
+- 每条问题带触发器名字；`ExtConfigs.MapSelfCheckOnLoad`（默认关）可开图即查
 # Changelog
 
 ## v0.5.1 — 2026-11-04（预览模式）
