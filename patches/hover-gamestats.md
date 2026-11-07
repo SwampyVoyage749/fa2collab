@@ -263,3 +263,17 @@ FA2sp Collab 地图自检
 
 验证：坏图跑完生成 139 字节报告，用 GBK 读出来正常显示中文与问题行。
 DLL：9,604,096 字节（2026-11-07 14:33:19）。
+### 孤儿触发器检查（第五版，2026-11-07）
+
+新增第 9 类检查：**触发器没有被任何 Tag 引用**，永远不可能触发。
+
+实现要点：
+- 在遍历 `[Tags]` 时把第三段的 trigger id 收进 `std::set<FString> referencedTriggers;`
+- 遍历 `[Triggers]` 时若 `referencedTriggers.find(id) == end()`，报
+  `Trigger <id> (<名字>) 没有被任何 Tag 引用，永远不会触发`
+
+验证：
+- 完好图（c_battlecity 副本）→ `问题数：0`，无误报
+- 注入 `0A0A0A0A=Americans,<none>,OrphanTrigger,...` → 命中三条（无 Events / 无 Actions / 无 Tag 引用）
+
+DLL：9,605,120 字节（2026-11-07 18:28:57）。

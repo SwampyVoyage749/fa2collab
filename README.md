@@ -57,6 +57,7 @@
 | 事件/动作 type=0 | 空事件、空动作 |
 | TeamType → Script | Script= 指向的脚本不存在 |
 | Action type=7 → TeamType | 动作里引用的队伍不存在 |
+| 孤儿触发器 | 触发器没有被任何 Tag 引用（永远不会触发） |
 
 每条问题都会带上**触发器名字**，方便在 Trigger List 里搜。
 
