@@ -8,7 +8,7 @@
 - 冲突格用红色 1×1 网格框标出（DX 与 GDI 两条渲染路径都支持）
 ## [未发布] 地图自检（Ctrl+Shift+C，实验性）
 
-- 新增 `CIsoViewExt::RunMapSelfCheck()`：9 类静态检查（Tag→Trigger、空 Events/Actions、type=0、TeamType→Script、Action type=7→TeamType、孤儿触发器）
+- 新增 `CIsoViewExt::RunMapSelfCheck()`：10 类静态检查（Tag→Trigger、空 Events/Actions、type=0、TeamType→Script、Action type=7→TeamType、孤儿触发器、声明数量与实际条目不符）
 - 结果同时弹窗 + 写 `<地图路径>.mapcheck.txt`（GBK）
 - 每条问题带触发器名字；`ExtConfigs.MapSelfCheckOnLoad`（默认关）可开图即查
 # Changelog
