@@ -1,10 +1,13 @@
-## [未发布] 放置提示（选中建筑时显示地基占用）
+## [未发布] 放置提示（选中建筑时显示地基 / 地形 / 单位冲突 + 红框）
 
-- 悬停面板新增 `Foundation: WxH, occupied: n/m`，已有建筑占格时行尾标 ` (!)`
+- 悬停面板新增 `Foundation: WxH, occupied: n/m, blocked: k, units: u`，有冲突时行尾标 ` (!)`
 - 自定义地基按 Foundations 列表逐格统计
+- 地形限制：悬崖 / Rock7 / Rock8 一律不可建；水面 / 海滩只在 art 有 `WaterBound=true` 时可建
+- 单位占位：格子上有车辆或步兵时计入 `units`
+- 冲突格用红色 1×1 网格框标出（DX 与 GDI 两条渲染路径都支持）
 ## [未发布] 地图自检（Ctrl+Shift+C，实验性）
 
-- 新增 `CIsoViewExt::RunMapSelfCheck()`：8 类静态检查（Tag→Trigger、空 Events/Actions、type=0、TeamType→Script、Action type=7→TeamType）
+- 新增 `CIsoViewExt::RunMapSelfCheck()`：9 类静态检查（Tag→Trigger、空 Events/Actions、type=0、TeamType→Script、Action type=7→TeamType、孤儿触发器）
 - 结果同时弹窗 + 写 `<地图路径>.mapcheck.txt`（GBK）
 - 每条问题带触发器名字；`ExtConfigs.MapSelfCheckOnLoad`（默认关）可开图即查
 # Changelog

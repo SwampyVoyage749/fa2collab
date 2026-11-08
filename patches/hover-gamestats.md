@@ -277,19 +277,29 @@ DLL：9,604,096 字节（2026-11-07 14:33:19）。
 - 注入 `0A0A0A0A=Americans,<none>,OrphanTrigger,...` → 命中三条（无 Events / 无 Actions / 无 Tag 引用）
 
 DLL：9,605,120 字节（2026-11-07 18:28:57）。
-### D1 放置提示：地基尺寸 + 已占格数（2026-11-08）
+### D1 放置提示：地基尺寸 / 已占 / 地形 / 单位 + 冲突格红框（2026-11-08）
 
 选中建筑工具（左侧「建筑」→ 具体建筑）后，悬停地图，坐标行下面多一行：
 
 ```
-Foundation: 3x3, occupied: 0/9
+Foundation: 3x3, occupied: 0/9, blocked: 2, units: 1 (!)
 ```
 
 - 地基尺寸来自 `CMapDataExt::BuildingDataExts[CMapDataExt::GetBuildingTypeIndex(ObjectID)]`
 - 自定义地基（`IsCustomFoundation()`）走 `Foundations` 的格子列表
-- `occupied` = 地基覆盖格里已有建筑（`CellData::Structure >= 0`）的数量，非 0 时行尾加 ` (!)`
+- `occupied` = 地基覆盖格里已有建筑（`CellData::Structure >= 0`）
+- `units` = 格子上有车辆或步兵（`CellData::Unit >= 0 || Infantry[0..2] >= 0`）
+- `blocked` = 地形不可建造或超出地图边界：
+  - `CMapDataExt::GetLandType(cell->TileIndex, cell->TileSubIndex)` 得到 `LandType`
+  - `LandType::Cliff` / `Rock7`(0x7) / `Rock8`(0x8) 一律不可建
+  - `Water`(0x9) / `Beach`(0xA) 只在建筑 art 有 `WaterBound=true` 时可建（`CINI::Art().GetBool(ObjectID, "WaterBound", false)`）
+- 任一冲突格都会用红色 1×1 网格框画出来：
+  - DX：`pIso->DirectXDrawLockedCellOutline(sx - drawOffsetX, sy - drawOffsetY, 1, 1, RGB(255,0,0), false, true, true, true, true, true)`
+  - GDI：`pIso->DrawLockedCellOutlinePaint(...)`，坐标同样减去 `CIsoViewExt::drawOffsetX/Y`
 - 门控：`Command == ObjectPlace && Type == Building && ObjectID` 非空，其他工具不受影响
 
-已知不足：不判地形限制（水面/悬崖），也不判单位占位；这两块要 `Rules.ini` 的 Land 表，留作 D2。
+已知不足：
+- 不查 `Rules.ini` 的 `Foundation` 白名单（部分建筑允许建在特定地形上），也没有考虑坡地高度差
+- 红框只在悬停时画，不做持续扫描
 
-DLL：9,606,144 字节（2026-11-08 12:02:10）。
+DLL：9,607,680 字节（2026-11-08 12:26:16）。
