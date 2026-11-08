@@ -1,3 +1,7 @@
+## [未发布] 放置提示（选中建筑时显示地基占用）
+
+- 悬停面板新增 `Foundation: WxH, occupied: n/m`，已有建筑占格时行尾标 ` (!)`
+- 自定义地基按 Foundations 列表逐格统计
 ## [未发布] 地图自检（Ctrl+Shift+C，实验性）
 
 - 新增 `CIsoViewExt::RunMapSelfCheck()`：8 类静态检查（Tag→Trigger、空 Events/Actions、type=0、TeamType→Script、Action type=7→TeamType）
