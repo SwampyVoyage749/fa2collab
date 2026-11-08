@@ -4,6 +4,7 @@
 - 自定义地基按 Foundations 列表逐格统计
 - 地形限制：悬崖 / Rock7 / Rock8 一律不可建；水面 / 海滩只在 art 有 `WaterBound=true` 时可建
 - 单位占位：格子上有车辆或步兵时计入 `units`
+- 高度检查：地基范围内 `CellData::Height` 不一致时计入 `uneven`（坡地放不下）
 - 冲突格用红色 1×1 网格框标出（DX 与 GDI 两条渲染路径都支持）
 ## [未发布] 地图自检（Ctrl+Shift+C，实验性）
 

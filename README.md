@@ -73,7 +73,7 @@
 左侧「建筑」→ 具体建筑选中后，把鼠标移到地图上，坐标行下面会多一行：
 
 ```
-Foundation: 3x3, occupied: 1/9, blocked: 2, units: 0 (!)
+Foundation: 3x3, occupied: 1/9, blocked: 2, units: 0, uneven: 3 (!)
 ```
 
 - `occupied`：地基覆盖格里已经有建筑
