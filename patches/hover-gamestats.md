@@ -322,3 +322,10 @@ Events 01000000 ([CHANGE] P3/All) 声明 3 个事件，实际只有 1 个
 - 完好图 `c_battlecity`（13 个触发器）→ `[MapCheck] done`，0 误报
 
 DLL：9,608,704 字节（2026-11-08 14:13:19）。
+
+### C 项第 11 类：TaskForce 引用的单位类型不存在（2026-11-09）
+
+- 位置：Ext\CIsoView\Body.cpp 的 CIsoViewExt::RunMapSelfCheck，插在「报告文件」段之前。
+- 做法：把 rules 的 InfantryTypes / VehicleTypes / AircraftTypes / BuildingTypes 收进 std::set<ppmfc::CString>（Variables::RulesMap.GetSection(...).second），再遍历 [TaskForces] → 每个队伍段 序号=数量,单位ID，单位 ID 不在集合里就报 TaskForce %s 引用了不存在的单位类型 %s；队伍段本身不存在也报。
+- 为什么值得查：单位 ID 拼错在 FA2 里看不出来，进游戏直接崩。
+- 状态：编译通过（DLL 9,610,752 B / 2026-11-09 13:38:05）；**真机未验证**（需要开 FA2 窗口，当时用户在游戏）。
