@@ -1,4 +1,5 @@
 #include "Body.h"
+#include "../CIsoView/Body.h"
 
 #include <CIsoView.h>
 #include <CFinalSunDlg.h>
@@ -47,7 +48,7 @@ struct PeerCursor {
 std::map<uint32_t, PeerCursor> g_peers;
 std::map<uint32_t, uint64_t> g_leaseRetryAt;
 std::set<uint32_t> g_deniedChunks;   // 被别人占住、本地改不动的块
-std::map<uint32_t, std::vector<collab::CellEdit>> g_remoteShadow;  // 块 -> 收到的远端状态
+std::map<uint32_t, std::map<int, collab::CellEdit>> g_remoteShadow;  // 块 -> (格索引 -> 远端状态)  // 块 -> 收到的远端状态
 std::string g_mapPath;
 int          g_mapW = 0, g_mapH = 0, g_stride = 0;
 int          g_chunkCols = 0, g_chunkRows = 0;
@@ -72,6 +73,7 @@ bool         g_selfTestDeletePending = false;
 uint64_t     g_selfTestDeleteAt = 0;
 int          g_selfTestObjSeq = 0;     // 每次注入挪一格，压测时能持续触发重建
 bool         g_objDirty = false;       // an object section changed this tick
+bool         g_tileDirty = false;      // 远端地形增量待重绘（每 tick 合并）
 bool         g_objRefreshFailed = false; // object rebuild crashed once -> stay off
 bool         g_iniDeleteSync = false; // INI 删键同步：实验性，默认关
 bool         g_iniDirty = false;      // 本轮有 INI 变化，需要统一刷新一次
@@ -194,7 +196,8 @@ void ScanChunks(collab::Session* s, bool warmup)
             auto shIt = g_remoteShadow.find(ckNow);
             if (g_deniedChunks.count(ckNow) && shIt != g_remoteShadow.end()) {
                 int restored = 0;
-                for (auto& e : shIt->second) {
+                for (auto& _kv : shIt->second) {
+                    const collab::CellEdit& e = _kv.second;
                     if (e.index < 0 || e.index >= CMapData::Instance->CellDataCount) continue;
                     CellData& c = cells[e.index];
                     if (c.TileIndex != (unsigned short)e.tile || c.Height != (unsigned char)e.height ||
@@ -275,7 +278,7 @@ void ScanIni(collab::Session* s)
 
     int sentThisRound = 0;
     for (auto& kv : doc->Dict) {
-        if (sentThisRound >= 20) break;   // 限流：大图节多，避免一次刷爆
+        if (sentThisRound >= 64) break;   // 限流：大图节多，避免一次刷爆
         const char* name = kv.first;
         if (!name || !*name || IsTerrainSection(name)) continue;
 
@@ -391,8 +394,11 @@ void ApplyIniSection(const std::string& name,
     std::map<std::string, std::string> remoteMap;
     for (auto& p : kv) remoteMap[p.first] = p.second;
     auto localMap = CollectSection(sec);
+    // 没有共同起点（节是后来才出现的）时，base 必须当成空：
+    // 否则「本地=基线」会让远端缺键被判成远端删除，把对方刚做的东西抹掉。
+    static const std::map<std::string, std::string> kEmptyIniBase;
     auto baseIt = g_iniBase.find(name);
-    const auto& baseMap = (baseIt != g_iniBase.end()) ? baseIt->second : localMap;
+    const auto& baseMap = (baseIt != g_iniBase.end()) ? baseIt->second : kEmptyIniBase;
 
     auto merged = collab::MergeIniSection(baseMap, localMap, remoteMap);
     if (!merged.conflicts.empty()) {
@@ -475,17 +481,15 @@ void ApplyRemoteDelta(uint32_t chunk, const std::vector<collab::CellEdit>& edits
         auto& shadow = g_remoteShadow[chunk];
         for (const auto& e : edits) {
             if (!collab::CellEditInChunk(e, CMapData::Instance->CellDataCount, g_stride, chunk)) continue;
-            auto it = std::find_if(shadow.begin(), shadow.end(),
-                [&](const collab::CellEdit& old) { return old.index == e.index; });
-            if (it == shadow.end()) shadow.push_back(e); else *it = e;
+            shadow[e.index] = e;   // map：O(log n)，不再是每次线性扫描
         }
     }
 
     if (applied > 0) {
         Logger::Info("[Collab] applied remote chunk (%u,%u) cells=%d", collab::ChunkX(chunk), collab::ChunkY(chunk), applied);
     }
-    if (applied > 0 && CFinalSunDlg::Instance) {
-        CFinalSunDlg::Instance->Update();
+    if (applied > 0) {
+        g_tileDirty = true;
     }
 }
 class LogSink : public collab::Sink
@@ -902,6 +906,9 @@ static void EnsureSession()
     g_chunkHash.clear();
     Logger::Info("[Collab] map ready: %s hash=0x%08X", mp, h);
 
+    if (ExtConfigs::MapSelfCheckOnLoad)
+        CIsoViewExt::RunMapSelfCheck(false);
+
     if (g_isHost) {
         uint16_t realPort = g_port;
         g_session = collab::CreateHost(g_port, g_name, h, 30000, &g_sink, &realPort);
@@ -1000,7 +1007,8 @@ void CCollabExt::Tick()
         if (g_isHost && g_snapshotPending && EnsureSnapshot()) {
             CellData* cells = CMapData::Instance->CellDatas;
             int sent = 0;
-            while (g_snapChunkCursor < g_chunkRows * g_chunkCols && sent < 8) {
+            int sentCells = 0;   // 本 tick 已推送的格子数，给超大图一个上限
+            while (g_snapChunkCursor < g_chunkRows * g_chunkCols && sent < 4096 && sentCells < 1200000) {
                 int cx = g_snapChunkCursor % g_chunkCols;
                 int cy = g_snapChunkCursor / g_chunkCols;
                 ++g_snapChunkCursor;
@@ -1022,6 +1030,7 @@ void CCollabExt::Tick()
                 if (!edits.empty() && g_session) {
                     g_session->SendTileDelta(collab::ChunkKey(cx, cy), edits);
                     ++sent;
+                    sentCells += (int)edits.size();
                 }
             }
             if (g_snapChunkCursor >= g_chunkRows * g_chunkCols) {
@@ -1203,6 +1212,14 @@ void CCollabExt::Tick()
             RefreshObjectLists();
         }
 
+        if (g_tileDirty && CFinalSunDlg::Instance)
+        {
+            g_tileDirty = false;
+            // 只失效、不强制同步重绘：整图快照落地时一次 Update 会把 UI 线程堵住十几秒
+            CIsoView* v = CIsoView::GetInstance();
+            if (v && ::IsWindow(v->GetSafeHwnd())) ::InvalidateRect(v->GetSafeHwnd(), nullptr, FALSE);
+            else CFinalSunDlg::Instance->Update();
+        }
         if (g_iniDirty && CFinalSunDlg::Instance) {
             g_iniDirty = false;
             CFinalSunDlg::Instance->Update();

@@ -93,7 +93,7 @@ static CursorState ReadCursor(Reader& rd) {
 }
 
 constexpr uint64_t kPingIntervalMs = 2000;
-constexpr uint64_t kTimeoutMs = 30000;
+constexpr uint64_t kTimeoutMs = 60000;
 
 static bool ValidLeaseRect(const Rect& r) {
     return r.x0 >= 0 && r.y0 >= 0 && r.x1 >= 0 && r.y1 >= 0 &&
