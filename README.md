@@ -101,7 +101,7 @@ Foundation: 3x3, occupied: 1/9, blocked: 2, units: 0, uneven: 3 (!)
 - 想让它一直开着，可以在 `Options` 里把 `InGameDisplay.AnimPreview` 打开
 ## 给"只用"的人
 
-不需要编译。直接下载 **[FA2spCollab_v0.4.2.zip](https://github.com/SwampyVoyage749/fa2collab/releases/download/v0.4.2/FA2spCollab_v0.4.2.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：
+不需要编译。直接下载 **[FA2spCollab_v0.5.2.zip](https://github.com/SwampyVoyage749/fa2collab/releases/latest/download/FA2spCollab_v0.5.2.zip)**（或看 [Releases 页](https://github.com/SwampyVoyage749/fa2collab/releases)）：
 
 1. 备份地编目录里的 `FA2sp.dll`
 2. 用包里的 `FA2sp.dll` 覆盖
